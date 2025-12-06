@@ -6,6 +6,7 @@ const fs = require("fs");
 const pathlib = require("path");
 const { Readline } = require("readline/promises");
 const readline = require("readline");
+const { promises } = require("dns");
 
 function waitForEnter() {
     return new Promise(resolve => {
@@ -18,35 +19,14 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function waitUntilStableTrue(checkFn, stableMs = 3000, intervalMs = 100) {
-    return new Promise(resolve => {
-        let becameTrueAt = null;
-
-        const interval = setInterval(() => {
-            if (checkFn()) {
-                // If just turned true, start timing
-                if (becameTrueAt === null) {
-                    becameTrueAt = Date.now();
-                }
-
-                // Check if it has stayed true long enough
-                if (Date.now() - becameTrueAt >= stableMs) {
-                    clearInterval(interval);
-                    resolve();
-                }
-
-            } else {
-                // Reset timer if it becomes false again
-                becameTrueAt = null;
-            }
-        }, intervalMs);
-    });
-}
-
 program
 	.name("clearmodules")
 	.description("Easily get rid of node_modules folders to clear up storage.")
-	.version("1.0.0");
+	.version("1.0.0")
+    .option(
+        "--skip-sys",
+        "also skip /mnt, /usr, and /opt (in addition to the default skip-list)"
+    );
 
 program
 	.command("clear <path>")
@@ -58,13 +38,13 @@ program
         spinner0.spinner = 'line';
 
         let i = 0;
-        let active = 0;
+        let _searchPromises = []
 
         const now = Date.now();
 				
 		try {
             const tmp1 = async(path) => {
-                active++;
+                const children = []
                 let items;
                 try {
                     items = fs.readdirSync(path, { withFileTypes: true });
@@ -83,11 +63,11 @@ program
 		        		if (item.name == "node_modules") {
                             paths.push(pathlib.resolve(fullPath));
                         } else {
-                            if (["proc", "boot", "etc", "var", "tmp", "bin", "dev", "sys", "usr"].includes(item.name)) {
+                            if (["proc", "boot", "etc", "var", "tmp", "bin", "dev", "sys"].includes(item.name)) {
                                 continue;
                             }
-                            await sleep(2);  // Avoid crashes
-                            tmp1(fullPath);
+                            await sleep(1);  // Avoid crashes
+                            children.push(tmp1(fullPath));
                         }
 		        	} else if (item.isFile()) {
                     
@@ -101,17 +81,18 @@ program
                         const dt = Math.round((Date.now() - now) / 100)/10
                         spinner0.text = `Retrieving node_modules file paths (scanned ${i} items)  ${dt}s (${Math.round(dt/i*100*1000)/100}s / 1k items)`;
                     }
+
                 };
-                active--;
+
+                await Promise.all(children);
 		    };
-            await tmp1(path);
+            _searchPromises.push(tmp1(path));
+            await Promise.all(_searchPromises);
         } catch (error) {
             spinner0.fail();
             console.error(error);
             process.exit(1);
         }
-
-        await waitUntilStableTrue(() => active === 0, 500);
 
 		spinner0.succeed();
 
@@ -157,18 +138,22 @@ program
 	.command("scan <path>")
 	.description("Scan for deletable paths.")
 	.action(async(path) => {
+        const opts = program.opts();
+        const skipSys = opts.skipSys === true;
+
 		let paths = [];
 
 		const spinner0 = ora('Retrieving node_modules file paths (1 file scanned)  0.0s').start();
         spinner0.spinner = 'line';
 
         let i = 0;
-        let done = false;
+        let _searchPromises = []
 
         const now = Date.now();
 				
 		try {
             const tmp1 = async(path) => {
+                const children = []
                 let items;
                 try {
                     items = fs.readdirSync(path, { withFileTypes: true });
@@ -185,13 +170,16 @@ program
 
 		        	if (item.isDirectory()) {
 		        		if (item.name == "node_modules") {
-                            paths.push(fullPath);
+                            paths.push(pathlib.resolve(fullPath));
                         } else {
-                            if (["proc", "boot", "etc", "var", "tmp", "bin", "dev", "sys", "usr"].includes(item.name)) {
+                            if (["proc", "boot", "etc", "var", "tmp", "bin", "dev", "sys"].includes(item.name)) {
                                 continue;
                             }
-                            await sleep(2);  // Avoid crashes
-                            tmp1(fullPath);
+                            if (["usr", "opt", "mnt"].includes(item.name) && skipSys) {
+                                continue;
+                            }
+                            await sleep(1);  // Avoid crashes
+                            children.push(tmp1(fullPath));
                         }
 		        	} else if (item.isFile()) {
                     
@@ -200,23 +188,23 @@ program
 		        	}
                     await sleep(1);  // Avoid crashes
                     i += 1;
-                    done = false;
 
                     if (i % 100 == 0) {
                         const dt = Math.round((Date.now() - now) / 100)/10
                         spinner0.text = `Retrieving node_modules file paths (scanned ${i} items)  ${dt}s (${Math.round(dt/i*100*1000)/100}s / 1k items)`;
                     }
+
                 };
-                done = true;
+
+                await Promise.all(children);
 		    };
-            await tmp1(path);
+            _searchPromises.push(tmp1(path));
+            await Promise.all(_searchPromises);
         } catch (error) {
             spinner0.fail();
             console.error(error);
             process.exit(1);
         }
-
-        await waitUntilStableTrue(() => done, 3000);
 
 		spinner0.succeed();
 
