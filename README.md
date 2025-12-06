@@ -10,8 +10,8 @@ clear_modules takes less than a second for each item scanned (on average). This 
 
 ## Installation
 To install, simply run:
-* **Linux:** `npm i bossboss2021.clear_modules -g` in a safe directory.
-* **Windows:** `npm i bossboss2021.clear_modules -g` in a terminal with Administrator permissions.
+* **Linux:** `npm i bossboss2021.clear_modules -g` in a safe directory. Make sure to not delete the node_modules folder for clear_modules (usually `/usr/local/lib/node_modules`).
+* **Windows:** `npm i bossboss2021.clear_modules -g` in a terminal with Administrator permissions. Make sure to not delete the node_modules folder for clear_modules.
 
 ## Usage
 To scan for `node_modules` folders, run: `clearmodules scan <base_directory>` (ex. `clearmodules scan ~`). \
