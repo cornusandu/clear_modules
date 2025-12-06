@@ -3,7 +3,7 @@
 clear_modules is a light-weight node.js application that allows you to easily search for and delete `node_modules` folders to easily free up space.
 
 ## Performance
-clear_modules takes less than a second for each item scanned (on average).
+clear_modules takes less than a second for each item scanned (on average). This may differ based on your computer.
 
 **Note:** When scanning root, skip over `/mnt`, `/usr` and `/opt` for higher performance with the `--skip-sys` flag! \
 |&nbsp;&nbsp;&nbsp;&nbsp;  **Note:** Due to a slight bug, using `--skip-sys` will also skip over **all** directories named `mnt`, `usr` or `opt` and their descendants.
